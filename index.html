@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Collector | Dark Elegance</title>
+    <title>QR Collector Pro | Dark Elegance</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <style>
         :root {
             --bg-color: #121212;
@@ -16,6 +17,7 @@
             --divider-color: #333333;
             --link-color: #64b5f6;
             --image-color: #ffb74d;
+            --create-color: #9c27b0;
         }
 
         * {
@@ -91,6 +93,15 @@
             background-color: #2a2a2a;
         }
 
+        .btn-create {
+            background-color: var(--create-color);
+            color: white;
+        }
+
+        .btn-create:hover {
+            background-color: #7b1fa2;
+        }
+
         .btn-icon {
             font-size: 20px;
         }
@@ -132,6 +143,18 @@
             border-radius: 8px;
             margin-top: 10px;
             border: 1px solid var(--divider-color);
+        }
+
+        .qr-code-display {
+            width: 200px;
+            height: 200px;
+            margin: 10px auto;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .qr-meta {
@@ -195,10 +218,115 @@
             background-color: rgba(207, 102, 121, 0.2);
         }
 
+        .action-btn.download {
+            color: var(--create-color);
+            background-color: rgba(156, 39, 176, 0.1);
+        }
+
+        .action-btn.download:hover {
+            background-color: rgba(156, 39, 176, 0.2);
+        }
+
         .empty-state {
             text-align: center;
             padding: 40px 20px;
             opacity: 0.5;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            background-color: var(--card-color);
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--accent-color);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 24px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-close:hover {
+            opacity: 1;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--divider-color);
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--text-color);
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
         }
 
         .fab {
@@ -225,6 +353,12 @@
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
         }
 
+        .fab-create {
+            right: 90px;
+            background-color: var(--create-color);
+            color: white;
+        }
+
         .type-badge {
             display: inline-block;
             padding: 2px 8px;
@@ -249,6 +383,11 @@
             color: var(--text-color);
         }
 
+        .type-qr {
+            background-color: rgba(156, 39, 176, 0.2);
+            color: var(--create-color);
+        }
+
         @media (max-width: 480px) {
             body {
                 padding: 15px;
@@ -266,17 +405,25 @@
                 font-size: 13px;
                 padding: 5px 10px;
             }
+            
+            .fab-create {
+                right: 80px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>QR Collector</h1>
-        <p>Сканируйте и сохраняйте QR-коды</p>
+        <h1>QR Collector Pro</h1>
+        <p>Сканируйте, создавайте и сохраняйте QR-коды</p>
     </div>
 
     <button class="btn" id="scanBtn">
         <span class="btn-icon">📷</span> Сканировать QR-код
+    </button>
+
+    <button class="btn btn-create" id="createBtn">
+        <span class="btn-icon">✏️</span> Создать QR-код
     </button>
 
     <div class="divider"></div>
@@ -288,7 +435,31 @@
         </div>
     </div>
 
-    <div class="fab" id="fabBtn">+</div>
+    <!-- Модальное окно создания QR -->
+    <div class="modal" id="createModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Создать QR-код</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="qrContent">Содержимое QR-кода:</label>
+                <textarea class="form-input form-textarea" id="qrContent" placeholder="Введите текст, ссылку или другие данные"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Предпросмотр:</label>
+                <div class="qr-code-display" id="qrPreview"></div>
+            </div>
+            
+            <button class="btn" id="generateBtn">Сгенерировать QR-код</button>
+            <button class="btn btn-secondary" id="saveQrBtn" style="display: none;">Сохранить QR-код</button>
+        </div>
+    </div>
+
+    <div class="fab fab-create" id="fabCreateBtn">✏️</div>
+    <div class="fab" id="fabScanBtn">📷</div>
 
     <script>
         // Инициализация WebApp
@@ -309,7 +480,15 @@
         const qrList = document.getElementById('qrList');
         const emptyState = document.getElementById('emptyState');
         const scanBtn = document.getElementById('scanBtn');
-        const fabBtn = document.getElementById('fabBtn');
+        const createBtn = document.getElementById('createBtn');
+        const fabScanBtn = document.getElementById('fabScanBtn');
+        const fabCreateBtn = document.getElementById('fabCreateBtn');
+        const createModal = document.getElementById('createModal');
+        const closeModal = document.getElementById('closeModal');
+        const qrContent = document.getElementById('qrContent');
+        const qrPreview = document.getElementById('qrPreview');
+        const generateBtn = document.getElementById('generateBtn');
+        const saveQrBtn = document.getElementById('saveQrBtn');
 
         // Загрузка сохраненных кодов
         function loadQRCodes() {
@@ -379,6 +558,41 @@
             }
         }
 
+        // Скачивание QR-кода
+        function downloadQRCode(dataUrl, filename) {
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = filename || 'qr_code_' + new Date().getTime() + '.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('QR-код сохранен');
+        }
+
+        // Генерация QR-кода
+        function generateQRCode(text, element, size = 200) {
+            try {
+                const qr = qrcode(0, 'L');
+                qr.addData(text);
+                qr.make();
+                
+                const qrSize = Math.min(size, 400);
+                const cellSize = Math.floor(qrSize / qr.getModuleCount());
+                const actualSize = qr.getModuleCount() * cellSize;
+                
+                element.innerHTML = qr.createImgTag(cellSize, 0);
+                const img = element.querySelector('img');
+                img.style.width = actualSize + 'px';
+                img.style.height = actualSize + 'px';
+                
+                return img.src;
+            } catch (e) {
+                console.error('Ошибка генерации QR-кода:', e);
+                element.innerHTML = '<p style="color: var(--error-color);">Ошибка генерации</p>';
+                return null;
+            }
+        }
+
         // Отображение списка
         function renderQRCodes() {
             qrList.innerHTML = '';
@@ -400,7 +614,8 @@
                 // Добавляем тип контента
                 const typeBadge = document.createElement('span');
                 typeBadge.className = `type-badge ${qr.type === 'Ссылка' ? 'type-link' : 
-                                      qr.type === 'Изображение' ? 'type-image' : 'type-text'}`;
+                                      qr.type === 'Изображение' ? 'type-image' : 
+                                      qr.type === 'QR-код' ? 'type-qr' : 'type-text'}`;
                 typeBadge.textContent = qr.type;
                 
                 // Отображаем содержимое
@@ -419,6 +634,13 @@
                     img.alt = 'Превью изображения';
                     content.textContent = 'Изображение: ';
                     content.appendChild(img);
+                } else if (qr.type === 'QR-код') {
+                    const qrImg = document.createElement('img');
+                    qrImg.className = 'qr-image-preview';
+                    qrImg.src = qr.image;
+                    qrImg.alt = 'Сгенерированный QR-код';
+                    content.textContent = 'QR-код: ' + (qr.data.length > 50 ? qr.data.substring(0, 50) + '...' : qr.data);
+                    content.appendChild(qrImg);
                 } else {
                     content.textContent = qr.data;
                 }
@@ -462,6 +684,14 @@
                         triggerHaptic();
                         const filename = `qr_image_${new Date(qr.date).getTime()}.${qr.data.split('.').pop().split('?')[0]}`;
                         downloadImage(qr.data, filename);
+                    };
+                } else if (qr.type === 'QR-код') {
+                    actionBtn = document.createElement('button');
+                    actionBtn.className = 'action-btn download';
+                    actionBtn.innerHTML = '⬇️ Скачать';
+                    actionBtn.onclick = () => {
+                        triggerHaptic();
+                        downloadQRCode(qr.image, `my_qr_${new Date(qr.date).getTime()}.png`);
                     };
                 }
                 
@@ -576,15 +806,82 @@
             }
         }
 
+        // Создание QR-кода
+        function createQRCode() {
+            triggerHaptic();
+            createModal.classList.add('active');
+            qrContent.focus();
+        }
+
+        // Закрытие модального окна
+        function closeCreateModal() {
+            triggerHaptic();
+            createModal.classList.remove('active');
+            qrPreview.innerHTML = '';
+            qrContent.value = '';
+            saveQrBtn.style.display = 'none';
+        }
+
+        // Генерация QR-кода по содержимому
+        function generateQRFromContent() {
+            const content = qrContent.value.trim();
+            if (!content) {
+                showToast('Введите текст для QR-кода', true);
+                return;
+            }
+            
+            triggerHaptic();
+            const qrImage = generateQRCode(content, qrPreview);
+            
+            if (qrImage) {
+                saveQrBtn.style.display = 'block';
+                saveQrBtn.onclick = () => {
+                    triggerHaptic();
+                    
+                    // Добавляем в историю
+                    qrCodes.unshift({
+                        data: content,
+                        type: 'QR-код',
+                        image: qrImage,
+                        date: new Date().toISOString()
+                    });
+                    
+                    saveQRCodes();
+                    renderQRCodes();
+                    closeCreateModal();
+                    showToast('QR-код сохранен');
+                };
+            }
+        }
+
         // Обработчики событий
         scanBtn.addEventListener('click', () => {
             triggerHaptic();
             setTimeout(scanQRCode, 200);
         });
 
-        fabBtn.addEventListener('click', () => {
+        createBtn.addEventListener('click', createQRCode);
+        fabScanBtn.addEventListener('click', () => {
             triggerHaptic();
             setTimeout(scanQRCode, 200);
+        });
+        fabCreateBtn.addEventListener('click', createQRCode);
+        closeModal.addEventListener('click', closeCreateModal);
+        generateBtn.addEventListener('click', generateQRFromContent);
+
+        // Закрытие модального окна при клике вне его
+        createModal.addEventListener('click', (e) => {
+            if (e.target === createModal) {
+                closeCreateModal();
+            }
+        });
+
+        // Генерация QR-кода при нажатии Enter
+        qrContent.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.shiftKey === false) {
+                e.preventDefault();
+                generateQRFromContent();
+            }
         });
 
         // Инициализация при загрузке
