@@ -14,6 +14,8 @@
             --secondary-color: #03dac6;
             --error-color: #cf6679;
             --divider-color: #333333;
+            --link-color: #64b5f6;
+            --image-color: #ffb74d;
         }
 
         * {
@@ -120,6 +122,18 @@
             line-height: 1.4;
         }
 
+        .qr-link {
+            color: var(--link-color);
+            text-decoration: none;
+        }
+
+        .qr-image-preview {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 10px;
+            border: 1px solid var(--divider-color);
+        }
+
         .qr-meta {
             display: flex;
             justify-content: space-between;
@@ -132,6 +146,7 @@
             display: flex;
             gap: 10px;
             margin-top: 8px;
+            flex-wrap: wrap;
         }
 
         .action-btn {
@@ -143,6 +158,41 @@
             display: flex;
             align-items: center;
             gap: 5px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            background-color: rgba(3, 218, 198, 0.1);
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            background-color: rgba(3, 218, 198, 0.2);
+        }
+
+        .action-btn.link {
+            color: var(--link-color);
+            background-color: rgba(100, 181, 246, 0.1);
+        }
+
+        .action-btn.link:hover {
+            background-color: rgba(100, 181, 246, 0.2);
+        }
+
+        .action-btn.image {
+            color: var(--image-color);
+            background-color: rgba(255, 183, 77, 0.1);
+        }
+
+        .action-btn.image:hover {
+            background-color: rgba(255, 183, 77, 0.2);
+        }
+
+        .action-btn.delete {
+            color: var(--error-color);
+            background-color: rgba(207, 102, 121, 0.1);
+        }
+
+        .action-btn.delete:hover {
+            background-color: rgba(207, 102, 121, 0.2);
         }
 
         .empty-state {
@@ -175,6 +225,30 @@
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
         }
 
+        .type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .type-link {
+            background-color: rgba(100, 181, 246, 0.2);
+            color: var(--link-color);
+        }
+
+        .type-image {
+            background-color: rgba(255, 183, 77, 0.2);
+            color: var(--image-color);
+        }
+
+        .type-text {
+            background-color: rgba(224, 224, 224, 0.2);
+            color: var(--text-color);
+        }
+
         @media (max-width: 480px) {
             body {
                 padding: 15px;
@@ -182,6 +256,15 @@
             
             .header h1 {
                 font-size: 20px;
+            }
+            
+            .qr-actions {
+                gap: 8px;
+            }
+            
+            .action-btn {
+                font-size: 13px;
+                padding: 5px 10px;
             }
         }
     </style>
@@ -255,6 +338,47 @@
             }
         }
 
+        // Проверка на URL
+        function isUrl(text) {
+            try {
+                new URL(text);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        // Проверка на изображение
+        function isImageUrl(text) {
+            if (!isUrl(text)) return false;
+            return /\.(jpeg|jpg|gif|png|webp|bmp|svg)$/i.test(text);
+        }
+
+        // Скачивание изображения
+        function downloadImage(url, filename) {
+            if (Telegram.WebApp.isVersionAtLeast('6.4')) {
+                Telegram.WebApp.downloadFile({
+                    url: url,
+                    file_name: filename || 'image_' + new Date().getTime() + '.jpg'
+                }, (success) => {
+                    if (success) {
+                        showToast('Изображение сохраняется...');
+                    } else {
+                        showToast('Ошибка сохранения', true);
+                    }
+                });
+            } else {
+                // Fallback для старых версий
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename || 'image_' + new Date().getTime() + '.jpg';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                showToast('Изображение сохраняется...');
+            }
+        }
+
         // Отображение списка
         function renderQRCodes() {
             qrList.innerHTML = '';
@@ -272,18 +396,45 @@
                 
                 const content = document.createElement('div');
                 content.className = 'qr-content';
-                content.textContent = qr.data;
+                
+                // Добавляем тип контента
+                const typeBadge = document.createElement('span');
+                typeBadge.className = `type-badge ${qr.type === 'Ссылка' ? 'type-link' : 
+                                      qr.type === 'Изображение' ? 'type-image' : 'type-text'}`;
+                typeBadge.textContent = qr.type;
+                
+                // Отображаем содержимое
+                if (qr.type === 'Ссылка') {
+                    const link = document.createElement('a');
+                    link.className = 'qr-link';
+                    link.href = qr.data;
+                    link.textContent = qr.data;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    content.appendChild(link);
+                } else if (qr.type === 'Изображение') {
+                    const img = document.createElement('img');
+                    img.className = 'qr-image-preview';
+                    img.src = qr.data;
+                    img.alt = 'Превью изображения';
+                    content.textContent = 'Изображение: ';
+                    content.appendChild(img);
+                } else {
+                    content.textContent = qr.data;
+                }
+                
+                content.appendChild(typeBadge);
                 
                 const meta = document.createElement('div');
                 meta.className = 'qr-meta';
                 meta.innerHTML = `
                     <span>${new Date(qr.date).toLocaleString()}</span>
-                    <span>${qr.type || 'Текст'}</span>
                 `;
                 
                 const actions = document.createElement('div');
                 actions.className = 'qr-actions';
                 
+                // Кнопка копирования
                 const copyBtn = document.createElement('button');
                 copyBtn.className = 'action-btn';
                 copyBtn.innerHTML = '📋 Копировать';
@@ -293,8 +444,30 @@
                     showToast('Скопировано в буфер');
                 };
                 
+                // Кнопка действия (открыть/сохранить)
+                let actionBtn = null;
+                if (qr.type === 'Ссылка') {
+                    actionBtn = document.createElement('button');
+                    actionBtn.className = 'action-btn link';
+                    actionBtn.innerHTML = '🌐 Открыть';
+                    actionBtn.onclick = () => {
+                        triggerHaptic();
+                        Telegram.WebApp.openLink(qr.data);
+                    };
+                } else if (qr.type === 'Изображение') {
+                    actionBtn = document.createElement('button');
+                    actionBtn.className = 'action-btn image';
+                    actionBtn.innerHTML = '💾 Сохранить';
+                    actionBtn.onclick = () => {
+                        triggerHaptic();
+                        const filename = `qr_image_${new Date(qr.date).getTime()}.${qr.data.split('.').pop().split('?')[0]}`;
+                        downloadImage(qr.data, filename);
+                    };
+                }
+                
+                // Кнопка удаления
                 const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'action-btn';
+                deleteBtn.className = 'action-btn delete';
                 deleteBtn.innerHTML = '🗑️ Удалить';
                 deleteBtn.onclick = () => {
                     triggerHaptic();
@@ -305,6 +478,7 @@
                 };
                 
                 actions.appendChild(copyBtn);
+                if (actionBtn) actions.appendChild(actionBtn);
                 actions.appendChild(deleteBtn);
                 
                 card.appendChild(content);
@@ -316,19 +490,29 @@
         }
 
         // Всплывающее уведомление
-        function showToast(message) {
+        function showToast(message, isError = false) {
             const toast = document.createElement('div');
             toast.style.position = 'fixed';
             toast.style.bottom = '20px';
             toast.style.left = '50%';
             toast.style.transform = 'translateX(-50%)';
-            toast.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            toast.style.backgroundColor = isError ? 'rgba(207, 102, 121, 0.9)' : 'rgba(30, 30, 30, 0.9)';
             toast.style.color = 'white';
             toast.style.padding = '12px 24px';
             toast.style.borderRadius = '24px';
             toast.style.zIndex = '1000';
             toast.style.animation = 'fadeIn 0.3s, fadeOut 0.3s 2s forwards';
+            toast.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+            toast.style.display = 'flex';
+            toast.style.alignItems = 'center';
+            toast.style.gap = '8px';
             toast.textContent = message;
+            
+            if (isError) {
+                const icon = document.createElement('span');
+                icon.textContent = '⚠️';
+                toast.prepend(icon);
+            }
             
             document.body.appendChild(toast);
             
@@ -348,7 +532,9 @@
                             
                             // Определяем тип содержимого
                             let type = 'Текст';
-                            if (data.startsWith('http://') || data.startsWith('https://')) {
+                            if (isImageUrl(data)) {
+                                type = 'Изображение';
+                            } else if (isUrl(data)) {
                                 type = 'Ссылка';
                             } else if (data.startsWith('tel:')) {
                                 type = 'Телефон';
@@ -358,6 +544,8 @@
                                 type = 'Геолокация';
                             } else if (data.startsWith('BEGIN:VCARD')) {
                                 type = 'Контакт';
+                            } else if (data.startsWith('WIFI:')) {
+                                type = 'Wi-Fi';
                             }
                             
                             // Добавляем в историю
@@ -369,7 +557,14 @@
                             
                             saveQRCodes();
                             renderQRCodes();
-                            showToast('QR-код сохранен');
+                            
+                            if (type === 'Изображение') {
+                                showToast('Обнаружено изображение - можно сохранить');
+                            } else if (type === 'Ссылка') {
+                                showToast('Обнаружена ссылка - можно открыть');
+                            } else {
+                                showToast('QR-код сохранен');
+                            }
                             
                             return true; // Закрыть сканер
                         }
@@ -377,7 +572,7 @@
                     }
                 );
             } else {
-                showToast('Функция сканирования недоступна в вашей версии Telegram');
+                showToast('Функция сканирования недоступна в вашей версии Telegram', true);
             }
         }
 
